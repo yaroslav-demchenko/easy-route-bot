@@ -4,6 +4,9 @@ import telebot
 from telebot import types
 import json
 from datetime import datetime
+from selenium import webdriver
+from get_tickets_data import get_tickets_data
+
 
 load_dotenv()
 ACCESS_TOKEN = os.getenv("TELEGRAM_ACCESS_TOKEN")
@@ -74,10 +77,19 @@ def set_route(call):
 def get_date(message, departure, destination):
     date = message.text
     if validate_date_format(date):
-        bot.send_message(message.from_user.id, "Опрацьовуємо ваш запит...")
-        # TODO realise parsing functionality
+        dep_code = route_map.get(departure.lower())
+        dest_code = route_map.get(destination.lower())
+        tickets_data = get_tickets_data(driver, dep_code, dest_code, date)
+        url = tickets_data[0]
+        tickets_info = tickets_data[1]
+        markup = types.InlineKeyboardMarkup()
+        for ticket in tickets_info:
+            btn = types.InlineKeyboardButton(text=" ".join(ticket), url=url)
+            markup.add(btn)
+        bot.send_message(message.chat.id, "Доступні квитки на такі потяги:", reply_markup=markup)
     else:
         bot.send_message(message.from_user.id, "Не вірний формат дати. Спробуйте ще раз...")
+
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('create_route'))
 def ask_departure(call):
@@ -107,4 +119,5 @@ def write_route(message, departure):
 
 
 if __name__ == '__main__':
+    driver = webdriver.Firefox()
     bot.infinity_polling()
